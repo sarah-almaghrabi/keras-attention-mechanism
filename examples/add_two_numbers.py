@@ -9,9 +9,10 @@ import numpy as np
 from keract import get_activations
 from tensorflow.keras import Input
 from tensorflow.keras.callbacks import Callback
-from tensorflow.keras.layers import Dense, Dropout, LSTM
+from tensorflow.keras.layers import Dense, Dropout, LSTM, Flatten, Conv1D
 from tensorflow.keras.models import load_model, Model
-from tensorflow.python.keras.utils.vis_utils import plot_model
+# from tensorflow.python.keras.utils.vis_utils import plot_model
+from keras.utils.vis_utils import plot_model
 
 # KERAS_ATTENTION_DEBUG: If set to 1. Will switch to debug mode.
 # In debug mode, the class Attention is no longer a Keras layer.
@@ -26,8 +27,7 @@ from attention import Attention
 
 def task_add_two_numbers_after_delimiter(
         n: int, seq_length: int, delimiter: float = 0.0,
-        index_1: int = None, index_2: int = None
-) -> (np.array, np.array):
+        index_1: int = None, index_2: int = None ) -> (np.array, np.array):
     """
     Task: Add the two numbers that come right after the delimiter.
     x = [1, 2, 3, 0, 4, 5, 6, 0, 7, 8]. Result is y = 4 + 7 = 11.
@@ -38,17 +38,19 @@ def task_add_two_numbers_after_delimiter(
     @param index_2: index of the number that comes after the second 0.
     @return: returns two numpy.array x and y of shape (n, seq_length, 1) and (n, 1).
     """
-    x = np.random.uniform(0, 1, (n, seq_length))
+    x = np.random.uniform(0, 1, (n, seq_length,2))
     y = np.zeros(shape=(n, 1))
     for i in range(len(x)):
         if index_1 is None and index_2 is None:
             a, b = np.random.choice(range(1, len(x[i])), size=2, replace=False)
         else:
             a, b = index_1, index_2
-        y[i] = 0.5 * x[i, a:a + 1] + 0.5 * x[i, b:b + 1]
+        y[i,0] = 0.5 * x[i, a:a + 1,0] + 0.5 * x[i, b:b + 1,0]
+        # y[i,1] = 0.5 * x[i, a:a + 1] + 0.5 * x[i, b:b + 1]
+        # y[i,2] = 0.5 * x[i, a:a + 1] + 0.5 * x[i, b:b + 1]
         x[i, a - 1:a] = delimiter
         x[i, b - 1:b] = delimiter
-    x = np.expand_dims(x, axis=-1)
+    # x = np.expand_dims(x, axis=-1)
     return x, y
 
 
@@ -62,8 +64,8 @@ def main():
     x_val, y_val = task_add_two_numbers_after_delimiter(4_000, seq_length)
 
     # just arbitrary values. it's for visual purposes. easy to see than random values.
-    test_index_1 = 4
-    test_index_2 = 9
+    test_index_1 = 1
+    test_index_2 = 19
     x_test, _ = task_add_two_numbers_after_delimiter(10, seq_length, 0, test_index_1, test_index_2)
     # x_test_mask is just a mask that, if applied to x_test, would still contain the information to solve the problem.
     # we expect the attention map to look like this mask.
@@ -72,8 +74,11 @@ def main():
     x_test_mask[:, test_index_2:test_index_2 + 1] = 1
 
     # Define/compile the model.
-    model_input = Input(shape=(seq_length, 1))
-    x = LSTM(100, return_sequences=True)(model_input)
+    model_input = Input(shape=( seq_length,2))
+    x = LSTM(100, return_sequences=True, name='encoder_')(model_input)
+    # x = Conv1D(100,3, padding='same',  name='encoder_')(model_input)
+    # x = Flatten()(x)
+    # x = Dense(20, use_bias=False, activation='tanh', name='attention_weight') (x)
     x = Attention()(x)
     x = Dropout(0.2)(x)
     x = Dense(1, activation='linear')(x)
@@ -82,7 +87,7 @@ def main():
 
     # Visualize the model.
     model.summary()
-    plot_model(model)
+    plot_model(model,show_dtype=True,show_shapes=True,expand_nested=True,show_layer_activations=True)
 
     # Will display the activation map in task_add_two_numbers/
     output_dir = Path('task_add_two_numbers')
@@ -93,6 +98,14 @@ def main():
     class VisualiseAttentionMap(Callback):
         def on_epoch_end(self, epoch, logs=None):
             attention_map = get_activations(model, x_test)['attention_weight']
+            # attention_map = get_activations(model, x_test)['encoder_']
+            print("x_test")
+            print(x_test.shape)
+            # print(x_test)
+            print("attention_map")
+            print(attention_map.shape)
+            print(model.output.get_shape())
+            # exit()
             # top is attention map, bottom is ground truth.
             plt.imshow(np.concatenate([attention_map, x_test_mask]), cmap='hot')
             iteration_no = str(epoch).zfill(3)
@@ -104,6 +117,10 @@ def main():
             plt.close()
 
     # train.
+    print('x_train:',x_train.shape)
+    print('y_train:',y_train.shape)
+    print('x_val:',x_val.shape)
+    print('y_val:',y_val.shape)
     model.fit(
         x_train, y_train, validation_data=(x_val, y_val),
         epochs=max_epoch, verbose=2, batch_size=64,
