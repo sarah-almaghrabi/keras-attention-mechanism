@@ -26,7 +26,7 @@ from attention import Attention
 
 
 def task_add_two_numbers_after_delimiter(
-        n: int, seq_length: int, delimiter: float = 0.0,
+        n: int, seq_length: int, delimiter: float = 0.0,dim= 1,
         index_1: int = None, index_2: int = None ) -> (np.array, np.array):
     """
     Task: Add the two numbers that come right after the delimiter.
@@ -38,19 +38,31 @@ def task_add_two_numbers_after_delimiter(
     @param index_2: index of the number that comes after the second 0.
     @return: returns two numpy.array x and y of shape (n, seq_length, 1) and (n, 1).
     """
-    x = np.random.uniform(0, 1, (n, seq_length,2))
+    x = np.random.uniform(0, 1, (n, seq_length,dim))
     y = np.zeros(shape=(n, 1))
+    print('len(x):',len(x))
     for i in range(len(x)):
         if index_1 is None and index_2 is None:
             a, b = np.random.choice(range(1, len(x[i])), size=2, replace=False)
         else:
             a, b = index_1, index_2
+
         y[i,0] = 0.5 * x[i, a:a + 1,0] + 0.5 * x[i, b:b + 1,0]
         # y[i,1] = 0.5 * x[i, a:a + 1] + 0.5 * x[i, b:b + 1]
         # y[i,2] = 0.5 * x[i, a:a + 1] + 0.5 * x[i, b:b + 1]
         x[i, a - 1:a] = delimiter
         x[i, b - 1:b] = delimiter
     # x = np.expand_dims(x, axis=-1)
+
+    # for n in [0,1]:
+    #     print('x')
+    #     print(x[n])
+    #     print('y')
+    #     print(y[n])
+    # print(x.shape)
+    # print(y.shape)
+
+    # exit()
     return x, y
 
 
@@ -58,15 +70,19 @@ def main():
     numpy.random.seed(7)
     max_epoch = int(sys.argv[1]) if len(sys.argv) > 1 else 150
 
+    dim =1
     # data. definition of the problem.
     seq_length = 20
-    x_train, y_train = task_add_two_numbers_after_delimiter(20_000, seq_length)
-    x_val, y_val = task_add_two_numbers_after_delimiter(4_000, seq_length)
+    x_train, y_train = task_add_two_numbers_after_delimiter(20_000, seq_length,dim=dim)
+    x_val, y_val = task_add_two_numbers_after_delimiter(4_000, seq_length,dim=dim)
 
     # just arbitrary values. it's for visual purposes. easy to see than random values.
     test_index_1 = 1
     test_index_2 = 19
-    x_test, _ = task_add_two_numbers_after_delimiter(10, seq_length, 0, test_index_1, test_index_2)
+    x_test, _ = task_add_two_numbers_after_delimiter(n = 5, seq_length = seq_length, delimiter = 0, index_1 = test_index_1, index_2 = test_index_2,dim=dim)
+    
+
+
     # x_test_mask is just a mask that, if applied to x_test, would still contain the information to solve the problem.
     # we expect the attention map to look like 
     # this mask.
@@ -74,14 +90,19 @@ def main():
     x_test_mask[:, test_index_1:test_index_1 + 1] = 1
     x_test_mask[:, test_index_2:test_index_2 + 1] = 1
 
+    # print('x_test:',x_test)
+    # print('x_test:',x_test.shape)
+    # exit()
     # Define/compile the model.
-    model_input = Input(shape=( seq_length,2))
-    x = LSTM(100, return_sequences=True, name='encoder_')(model_input)
-    # x = Conv1D(100,3, padding='same',  name='encoder_')(model_input)
+    model_input = Input(shape=( seq_length,dim))
+    # x = LSTM(100, return_sequences=True, name='encoder_')(model_input)
+    x = Conv1D(100,3, padding='same',  name='encoder_')(model_input)
     # x = Flatten()(x)
     # x = Dense(20, use_bias=False, activation='tanh', name='attention_weight') (x)
     x = Attention()(x)
     x = Dropout(0.2)(x)
+    x = Flatten()(x)
+    x = Dense(20, use_bias=False, activation='tanh' ) (x)
     x = Dense(1, activation='linear')(x)
     model = Model(model_input, x)
     model.compile(loss='mae', optimizer='adam')
@@ -133,8 +154,15 @@ def main():
     pred1 = model.predict(x_val)
     model.save('test_model.h5')
     model_h5 = load_model('test_model.h5')
-    pred2 = model_h5.predict(x_val)
-    np.testing.assert_almost_equal(pred1, pred2)
+
+    # pred2 = model_h5.predict(x_val)
+    pred2 = model_h5.predict(x_test)
+    
+    print("x_test:",x_test)
+    print("_:",_)
+    print(pred2)
+
+    # np.testing.assert_almost_equal(pred1, pred2)
     print('Success.')
 
 
