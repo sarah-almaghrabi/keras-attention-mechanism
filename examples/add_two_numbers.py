@@ -68,7 +68,8 @@ def main():
     test_index_2 = 19
     x_test, _ = task_add_two_numbers_after_delimiter(10, seq_length, 0, test_index_1, test_index_2)
     # x_test_mask is just a mask that, if applied to x_test, would still contain the information to solve the problem.
-    # we expect the attention map to look like this mask.
+    # we expect the attention map to look like 
+    # this mask.
     x_test_mask = np.zeros_like(x_test[..., 0])
     x_test_mask[:, test_index_1:test_index_1 + 1] = 1
     x_test_mask[:, test_index_2:test_index_2 + 1] = 1
@@ -103,11 +104,12 @@ def main():
             print(x_test.shape)
             # print(x_test)
             print("attention_map")
-            print(attention_map.shape)
-            print(model.output.get_shape())
+
+
             # exit()
             # top is attention map, bottom is ground truth.
             plt.imshow(np.concatenate([attention_map, x_test_mask]), cmap='hot')
+            plt.colorbar()
             iteration_no = str(epoch).zfill(3)
             plt.axis('off')
             plt.title(f'Iteration {iteration_no} / {max_epoch}')
