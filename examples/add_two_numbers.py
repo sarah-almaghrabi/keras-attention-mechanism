@@ -39,7 +39,7 @@ def task_add_two_numbers_after_delimiter(
     @return: returns two numpy.array x and y of shape (n, seq_length, 1) and (n, 1).
     """
     x = np.random.uniform(0, 1, (n, seq_length,dim))
-    y = np.zeros(shape=(n, 1))
+    y = np.zeros(shape=(n, 3))
     print('len(x):',len(x))
     for i in range(len(x)):
         if index_1 is None and index_2 is None:
@@ -48,6 +48,8 @@ def task_add_two_numbers_after_delimiter(
             a, b = index_1, index_2
 
         y[i,0] = 0.5 * x[i, a:a + 1,0] + 0.5 * x[i, b:b + 1,0]
+        y[i,1] = 0.25 * x[i, a:a + 1,1] + 0.25 * x[i, b:b + 1,1]
+        y[i,2] = 2 * x[i, a:a + 1,0] + 2 * x[i, b:b + 1,0]
         # y[i,1] = 0.5 * x[i, a:a + 1] + 0.5 * x[i, b:b + 1]
         # y[i,2] = 0.5 * x[i, a:a + 1] + 0.5 * x[i, b:b + 1]
         x[i, a - 1:a] = delimiter
@@ -70,7 +72,7 @@ def main():
     numpy.random.seed(7)
     max_epoch = int(sys.argv[1]) if len(sys.argv) > 1 else 150
 
-    dim =1
+    dim =2
     # data. definition of the problem.
     seq_length = 20
     x_train, y_train = task_add_two_numbers_after_delimiter(20_000, seq_length,dim=dim)
@@ -103,7 +105,7 @@ def main():
     x = Dropout(0.2)(x)
     x = Flatten()(x)
     x = Dense(20, use_bias=False, activation='tanh' ) (x)
-    x = Dense(1, activation='linear')(x)
+    x = Dense(3, activation='linear')(x)
     model = Model(model_input, x)
     model.compile(loss='mae', optimizer='adam')
 
@@ -119,12 +121,13 @@ def main():
 
     class VisualiseAttentionMap(Callback):
         def on_epoch_end(self, epoch, logs=None):
-            attention_map = get_activations(model, x_test)['attention_weight']
+            attention_map = get_activations(model, x_test)['attention_weight_']
             # attention_map = get_activations(model, x_test)['encoder_']
             print("x_test")
             print(x_test.shape)
             # print(x_test)
             print("attention_map")
+            print(attention_map.shape)
 
 
             # exit()
